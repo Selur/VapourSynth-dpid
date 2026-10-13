@@ -1,0 +1,72 @@
+name: Build wheels
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows x64, os: windows-latest, archs: AMD64 }
+          - { name: Linux x86_64, os: ubuntu-latest, archs: x86_64 }
+          - { name: macOS arm64, os: macos-14, archs: arm64 }
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v4.3
+        env:
+          # The plugin only uses the VapourSynth C API, so one interpreter is enough;
+          # the wheel is re-tagged to py3-none below.
+          CIBW_BUILD: cp312-*
+          CIBW_SKIP: '*-musllinux*'
+          CIBW_ARCHS: ${{ matrix.archs }}
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: ''
+          # The runtime is linked statically (b_vscrt=mt), so delvewheel would have nothing to bundle.
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: ''
+          # Meson would otherwise pick MinGW g++ on the runner, whose DLL needs libstdc++/libgcc
+          # at load time. Build with MSVC and link the runtime statically instead.
+          CIBW_CONFIG_SETTINGS_WINDOWS: setup-args=--vsenv setup-args=-Db_vscrt=mt
+          # The test installs the wheel together with the VapourSynth PyPI package
+          # (binary wheels for all three platforms) and runs the functional tests.
+          CIBW_TEST_COMMAND: python {project}/test/test_dpid.py
+
+      - name: Re-tag wheel as Python-independent
+        shell: bash
+        run: |
+          python -m pip install wheel
+          python -m wheel tags --python-tag py3 --abi-tag none --remove wheelhouse/*.whl
+          ls wheelhouse
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  release:
+    name: GitHub release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*.whl
+          generate_release_notes: true

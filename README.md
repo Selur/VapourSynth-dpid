@@ -97,3 +97,15 @@ dpid.DpidRaw(clip clip[, clip clip2, float lambda=1.0, float[] src_left=0, float
     Sets which planes will be processed. 
 
     Any unprocessed planes will be simply copied from `clip2`.
+
+## Fork changes (Selur/VapourSynth-dpid)
+
+- VapourSynth API 4 (`VapourSynthPluginInit2`), plugin version 8.1; arguments and results unchanged.
+- Meson build at the top level with vendored API 4 headers (`include/vapoursynth`), used when no system headers are found.
+- meson-python wheels for Windows x64, Linux x86_64 and macOS arm64; the wheel puts the plugin into `site-packages/vapoursynth/plugins`:
+
+    ```
+    pip install .
+    ```
+
+- `test/test_dpid.py` compares the output with a Python reference of the algorithm; float rounding of different compilers may differ by one step.
