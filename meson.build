@@ -1,7 +1,7 @@
 project('VapourSynth-dpid', 'cpp',
   default_options : ['buildtype=release', 'b_ndebug=if-release', 'cpp_std=c++17', 'warning_level=3'],
   meson_version : '>=0.51.0',
-  version : '8.1.0'
+  version : '8.1.1'
 )
 
 # Prefer system VapourSynth headers, fall back to the vendored API 4 headers.
